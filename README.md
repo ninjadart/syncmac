@@ -7,6 +7,7 @@ Features
 
 • Accurate Progress Tracking (--no-inc-recursive): Scans the full directory tree upfront so the transfer percentage progresses steadily from 0% to 100% without bouncing backward.
 
+
 • Pinned Disk Space Monitor: Uses terminal cursor positioning (tput) to pin a live timestamp and df -h readout for your destination drive at the top of the terminal, refreshing every 30 seconds without interrupting the rsync progress bar.
 
 • HFS+ Friendly Defaults (-rth --size-only): Preserves timestamps and folder structures while avoiding cross-filesystem UID/permission conflicts between NTFS/Linux and macOS HFS+ volumes.
