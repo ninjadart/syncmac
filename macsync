@@ -1,0 +1,67 @@
+function syncmac --description "Rsync to HFS+ with full scan, live progress bar, pinned 30s monitor, and error log"
+    # Verify that both a source and destination path were provided
+    if test (count $argv) -lt 2
+        echo "Usage: syncmac <source_path> <destination_path>"
+        return 1
+    end
+
+    # Safely grab the source and destination arguments without square brackets
+    set -l src (printf "%s\n" $argv | head -n 1)
+    set -l dest (printf "%s\n" $argv | tail -n 1)
+    set -l log_file "$HOME/skipped_mac_files.txt"
+
+    # Verify both paths exist before starting
+    if not test -e "$src"
+        echo "❌ Source path not found: $src"
+        return 1
+    end
+    if not test -d "$dest"
+        echo "❌ Destination directory not found: $dest"
+        return 1
+    end
+
+    clear
+    echo -e "\n"
+
+    # Run the 30-second disk monitor in a background Fish subshell
+    fish -c '
+        set -l target $argv
+        while true
+            tput sc
+            tput cup 0 0
+            printf "\033[2K=== %s ===\n\033[2K%s" (date "+%Y-%m-%d %H:%M:%S") (df -h "$target" | tail -n 1)
+            tput rc
+            sleep 30
+        end
+    ' -- "$dest" &;
+
+    # Save the Process ID (PID) of the background monitor loop
+    set -l pid $last_pid
+
+    # Ensure the background monitor is always killed, even if aborted with Ctrl+C
+    trap "kill $pid 2>/dev/null" EXIT INT TERM
+
+    # Run rsync with full upfront scan and redirect any errors/skipped files to $log_file
+    rsync -rth --size-only --no-inc-recursive --info=flist2,progress2 "$src" "$dest" 2> "$log_file"
+
+    # Flush any remaining cached writes from your 110 GB RAM to the external drive
+    echo -e "\nFlushing remaining RAM write cache to disk... (do not unplug yet)"
+    sync
+
+    # Stop the background monitor and clear the trap
+    kill $pid 2>/dev/null
+    trap - EXIT INT TERM
+
+    echo "Transfer complete and safely synced to disk!"
+
+    # Check if the log file has any entries; if empty, delete it cleanly
+    if test -s "$log_file"
+        echo "⚠️  Some files were skipped or had errors. See: $log_file"
+    else
+        rm -f "$log_file"
+        echo "✅ Zero files were skipped!"
+    end
+end
+
+# Save the updated function permanently
+funcsave syncmac
